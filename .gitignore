@@ -1,0 +1,79 @@
+# Ignore CSV files
+*.csv
+# Except the main one:
+!*processed_products.csv
+
+# Ignore the images:
+*.png
+*.jpg
+*.jpeg
+
+
+# macOS
+*.DS_Store
+*.AppleDouble
+*.LSOverride
+
+# Thumbnails
+*._*
+
+# macOS cache files
+*.swp
+*.swo
+*.tmp
+
+# Python specific
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VSCode
+*.vscode/
+*.code-workspace
+
+# Environment files
+*.env
+*.venv
+*env/
+*venv/
+*ENV/
+*env.bak/
+*venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pyre
+.pyre/
+
+# dotenv
+.env
+.env.*
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Testing
+*.pytest_cache/
