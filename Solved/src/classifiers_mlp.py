@@ -80,12 +80,14 @@ class MultimodalDataset(Sequence):
             # TODO: Get the text data from the DataFrame as a NumPy array
             self.text_data = df[text_cols].values
         else:
+            # Else, set text data to None
             self.text_data = None
             
         if image_cols:
             # TODO: Get the image data from the DataFrame as a NumPy array
             self.image_data = df[image_cols].values
         else:
+            # Else, set image data to None
             self.image_data = None
             
         if not text_cols and not image_cols:
