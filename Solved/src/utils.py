@@ -199,9 +199,11 @@ def train_test_split_and_feature_extraction(df, test_size=0.3, random_state=42):
     # Select features and labels vectors:
     # Features
     # TODO: Select the name of the columns with the text embeddings and return it as a list (Even if there is only one column)
-    text_columns = [column for column in df.columns if 'text_' in column]
+    # Make sure to select only the columns that are actually text embeddings, that means text_1, text_2, etc.
+    text_columns = [column for column in df.columns if 'text_' in column and column.split('_')[1].isdigit()]
     # TODO: Select the name of the columns with the image embeddings and return it as a list (Even if there is only one column)
-    image_columns = [column for column in df.columns if 'image_' in column]
+    # Make sure to select only the columns that are actually image embeddings, that means image_1, image_2, etc.
+    image_columns = [column for column in df.columns if 'image_' in column and column.split('_')[1].isdigit()]
     # TODO: Select the name of the column with the class labels and return it as a list (Even if there is only one column)
     label_columns = ['class_id']
 

@@ -17,7 +17,7 @@ This project focuses on classifying products from BestBuy.com into predefined ca
 
 ### Overview
 
-The first step in this project is to get familiar with the `processed_products.csv` dataset, that is the dataset containing the products' information. You will also need to download the images from the URLs provided in the dataset.
+The first step in this project is to get familiar with the `processed_products_with_images.csv` dataset, that is the dataset containing the products' information. You will also need to download the images from the URLs provided in the dataset.
 
 The dataset contains the following structure:
 - `sku`: The product's unique identifier.
@@ -30,13 +30,44 @@ The dataset contains the following structure:
 - `manufacturer`: The product's manufacturer.
 - `class_id`: The product's class identifier.
 - `sub_class1_id`: The product's sub-class identifier.
+- `image_path`: The path where the image is stored.
 
 Optionally, you have a `categories.json` file that contains the hierarchical relationships between categories, and category ids. You can use this file to get more information about the categories and their relationships.
 
-### Instructions
-Your first task is to understand the dataset, setup the environment, load the data, and use the class `ImageDownloader` to download the images from the URLs provided in the dataset. We suggest you to put the images in a folder `data/images/`. The class allows you to download the images defining the image size, use an image according to the size of the CNN model you will use to extract the embeddings. The `ImageDownloader` class will also generate a CSV file with the images successfully downloaded, we suggest you to save this file as `data/processed_products_with_images.csv`.
+Your first task is to understand the dataset, setup the environment, load the data, and download the images. We suggest you to put the images in a folder `data/images/`. The images are in a `.jpg` format in a `224x224` resolution. If you want to download the images in a different resolution, you can change the `SHAPE` variable and the ImageDownloader class in the `src/utils.py` file and download the images from the URLs provided in the dataset.
 
-- Optional: You can open an external notebook to explore the dataset and the images downloaded.
+```python
+# Load the data:
+CSV_PATH = 'data/processed_products.csv'
+df = pd.read_csv(CSV_PATH)
+
+# Download the images and add the image paths to the dataframe:
+DIR='data/images/'
+SHAPE=(224, 224)
+OVERWRITE=False
+OUTPUT_CSV='data/processed_products_with_images.csv'
+
+# Instantiate the ImageDownloader class
+image_downloader = ImageDownloader(image_dir=DIR, image_size=SHAPE, overwrite=OVERWRITE)
+
+# Download images and get the updated DataFrame
+updated_df = image_downloader.download_images(df)
+
+# Save the updated DataFrame
+updated_df.to_csv(CSV_PATH, index=False)
+```
+
+### Instructions
+
+1. **Download the data and images**:
+
+   Place the preprocessed dataset in `data/processed_products_with_images.csv` if is not already there. Then [download the zip file containing the images](https://drive.google.com/file/d/14s2aDNTEWse86cWyLhvVIKmob6EbQrm_/view?usp=sharing), and extract the images to the folder `data/images/`.
+   
+   To understand that you downloaded the images correctly and that you places the data in the correct folder, you can run the section `1.1. Simple EDA` in the notebook.
+
+2.  **Explore the dataset**:
+
+    Explore the dataset to understand the structure of the data, the columns, and the information available. You can also explore the images to understand the quality and the content of the images. You can open an external notebook to explore the dataset structure and visualize some images.
 
 ---
 ## 2. Generating Image Embeddings
