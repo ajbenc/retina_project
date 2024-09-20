@@ -1,10 +1,10 @@
 import pandas as pd
-
 import os
 import numpy as np
 from PIL import Image
 import requests
 from io import BytesIO
+from sklearn.model_selection import train_test_split
 
 import warnings
 # Suppress all warnings
@@ -166,3 +166,43 @@ class ImageDownloader:
         
         df['image_path'] = image_paths
         return df
+
+
+
+# Function to get do the train-test split and get the features and labels
+def train_test_split_and_feature_extraction(df, test_size=0.3, random_state=42):
+    """
+    Split the data into train and test sets and extract features and labels.
+    
+    Args:
+    - df (pd.DataFrame): DataFrame containing the data.
+    
+    Keyword Args:
+    - test_size (float): Size of the test set.
+    - random_state (int): Random state for reproducibility
+    
+    Returns:
+    pd.DataFrame: Train DataFrame.
+    pd.DataFrame: Test DataFrame.
+    list: List of columns with text embeddings.
+    list: List of columns with image embeddings.
+    list: List of columns with class labels.
+    
+    Example:
+    train_df, test_df, text_columns, image_columns, label_columns = train_test_split_and_feature_extraction(df)
+    """
+
+    # Split the data:
+    # TODO: Split the data into train and test sets setting using the test_size and random_state parameters
+    train_df, test_df = train_test_split(df, test_size=test_size, random_state=random_state)
+
+    # Select features and labels vectors:
+    # Features
+    # TODO: Select the name of the columns with the text embeddings and return it as a list (Even if there is only one column)
+    text_columns = [column for column in df.columns if 'text_' in column]
+    # TODO: Select the name of the columns with the image embeddings and return it as a list (Even if there is only one column)
+    image_columns = [column for column in df.columns if 'image_' in column]
+    # TODO: Select the name of the column with the class labels and return it as a list (Even if there is only one column)
+    label_columns = ['class_id']
+
+    return train_df, test_df, text_columns, image_columns, label_columns

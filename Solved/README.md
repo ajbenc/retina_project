@@ -108,14 +108,14 @@ In this section, you'll preprocess the embeddings generated in the previous sect
 1. **Merge the Embeddings**:
    Load the embeddings generated in the previous sections and merge them into a single dataset. To do so go to the notebook and run the section `2.3. Merge Embeddings` to merge the embeddings into a single dataset.
 
-2. **Split the Dataset**:
-   Split the dataset into training and testing sets. To do so go to the notebook and implement the section `3.1. Dataset Preparation` to split the dataset into training and testing sets.
+   The function will create a dataframe with the embeddings from both the text and image data. The dataframe will contain the text and image IDs, the product category, as well as the metadata for the product, and `n` + `m` new extra columns with the embeddings, where `n` is the size of the text embeddings and `m` is the size of the image embeddings. The new embedding columns will be named `text_0`, `text_1`, ..., `text_n`, `image_0`, `image_1`, ..., `image_m`.
 
-3. **Identify Columns**:
-   Identify the image columns, text columns, and label column in the dataset. To do so go to the notebook and set the lists in section `3.1. Dataset Preparation` with the columns names.
+2. **Split the Dataset and Identify the Text and Image Columns**:
+   Then split the dataset into training and testing sets, and extract the embeddings from the text and image columns. To do so go to the file `src\utils.py`, and go to the function `train_test_split_and_feature_extraction` and implement the missing lines to split the dataset into training and testing sets, and extract the columns that contain the embeddings of the text and image data, and the label column.
 
 4. **Output**:
-   The function will create a dataframe with the embeddings from both the text and image data. The dataframe will contain the text and image IDs, the product category, as well as the metadata for the product, and `n` + `m` new extra columns with the embeddings, where `n` is the size of the text embeddings and `m` is the size of the image embeddings. The new embedding columns will be named `text_0`, `text_1`, ..., `text_n`, `image_0`, `image_1`, ..., `image_m`.
+   The function will return the training and testing sets, the text and image columns, and the label column.
+
 
 ---
 

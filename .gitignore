@@ -2,6 +2,7 @@
 *.csv
 # Except the main one:
 !*processed_products.csv
+!*processed_products_with_images.csv
 
 # Ignore the images:
 *.png
