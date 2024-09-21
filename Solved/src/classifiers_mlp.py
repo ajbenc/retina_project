@@ -315,7 +315,7 @@ def test_model(y_test, y_pred, y_prob=None, encoder=None):
 
 
     
-def train_mlp(train_loader, test_loader, text_input_size, image_input_size, output_size, num_epochs=50, report=False, lr=0.001, set_weights=True, adam=False, p=0.0, seed=1, patience=40):
+def train_mlp(train_loader, test_loader, text_input_size, image_input_size, output_size, num_epochs=50, report=False, lr=0.001, set_weights=True, adam=False, p=0.0, seed=1, patience=40, save_results=True):
     """
     Trains a multimodal early fusion model using both text and image data.
 
@@ -418,7 +418,7 @@ def train_mlp(train_loader, test_loader, text_input_size, image_input_size, outp
 
     test_accuracy = accuracy_score(np.argmax(y_true, axis=1), y_pred)
     f1 = f1_score(np.argmax(y_true, axis=1), y_pred, average='macro')
-
+    
     auc_scores = roc_auc_score(y_true, y_prob, average='macro', multi_class='ovr')
     macro_auc = auc_scores
 
@@ -431,5 +431,19 @@ def train_mlp(train_loader, test_loader, text_input_size, image_input_size, outp
 
     if report:
         test_model(y_true, y_pred, y_prob, encoder=train_loader.encoder)
+    
+    # Store results in a dataframe and save in the results folder
+    if text_input_size is not None and image_input_size is not None:
+        model_type = 'multimodal'
+    elif text_input_size is not None:
+        model_type = 'text'
+    elif image_input_size is not None:
+        model_type = 'image'
+    
+    if save_results:
+        results = pd.DataFrame({'Predictions': y_pred, 'True Labels': np.argmax(y_true, axis=1)})
+        # create results folder if it does not exist
+        os.makedirs('results', exist_ok=True)
+        results.to_csv(f"results/{model_type}_results.csv", index=False)
 
     return model, test_accuracy, f1, macro_auc

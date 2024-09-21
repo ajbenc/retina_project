@@ -188,6 +188,11 @@ In this section, you'll train and evaluate MLP models using the image and text e
 3. **Train and Evaluate Models**:
    Go to the notebook to the section `3.3 Multi-layer Perceptron` and run the code to train and evaluate the MLP models using the image only, text only, and combined embeddings.
 
+4. **Output**:
+   Once you train each model, it will generate a classification report and a confusion matrix to evaluate the model's performance. It will also generate a folder `results` with the files `results/multimodal_results.csv`, `results/image_results.csv`, or `results/text_results.csv` containing the results of your model on the test set. Those files are necessary for the final evaluation, so don't remove, rename, or change them.
+
+   **You must get an accuracy of at least 85% and an F1-score of at least 80% for the multimodal model, an accuracy of at least 85% and an F1-score of at least 80% for the text model, and an accuracy of at least 75% and an F1-score of at least 70% for the image model.**
+
 ---
 
 ## Installation
