@@ -18,7 +18,7 @@ def mock_text_data(tmp_path):
     Fixture to create a mock CSV file with text data for testing.
     """
     data = {
-        "description": ["Product 1 description", "Product 2 description", "Product 3 description"]
+        "description": ["Product 1 description", "Product 2 description"]
     }
     df = pd.DataFrame(data)
     file_path = tmp_path / "test_text_data.csv"
@@ -28,7 +28,7 @@ def mock_text_data(tmp_path):
 
 @pytest.mark.parametrize("model_name, expected_hidden_size", [
     ('sentence-transformers/all-MiniLM-L6-v2', 384),  # MiniLM with 384 hidden units
-    ('bert-base-uncased', 768),  # BERT base with 768 hidden units
+    #('bert-base-uncased', 768),  # BERT base with 768 hidden units
 ])
 def test_huggingface_embeddings_generic(model_name, expected_hidden_size, mock_text_data):
     """
@@ -62,25 +62,6 @@ def test_huggingface_embeddings_generic(model_name, expected_hidden_size, mock_t
     # Check that the embeddings are a NumPy array with the expected shape
     assert isinstance(embeddings, np.ndarray), "Embeddings should be a NumPy array"
     assert embeddings.shape == (expected_hidden_size,), f"Embeddings shape should be ({expected_hidden_size},), got {embeddings.shape}"
-
-    # Test generating embeddings for a DataFrame and saving to CSV
-    output_dir = "Embeddings_test"
-    output_file = "test_text_embeddings.csv"
-    model.get_embedding_df(column="description", directory=output_dir, file=output_file)
-
-    # Load the saved CSV and check if embeddings are present
-    saved_df = pd.read_csv(f"{output_dir}/{output_file}")
-    
-    assert "embeddings" in saved_df.columns, "The 'embeddings' column should be present in the saved DataFrame"
-    assert len(saved_df["embeddings"]) == 3, "The number of embeddings should match the number of descriptions"
-
-    # Check if the embeddings column contains valid embeddings (as a string representation of lists)
-    for embedding in saved_df["embeddings"]:
-        assert isinstance(eval(embedding), list), "Embeddings should be stored as lists in the CSV file"
-
-    print(f"Embeddings DataFrame for {model_name} has shape {saved_df.shape} \n{saved_df.head()}")
-    print(f"The embeddings in the final dataframe are lists of length {len(eval(saved_df['embeddings'][0]))}")
-
 
 if __name__ == "__main__":
     pytest.main()

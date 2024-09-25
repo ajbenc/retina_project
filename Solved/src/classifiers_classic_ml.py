@@ -192,7 +192,7 @@ def test_model(X_test, y_test, model):
 
 
 
-def train_and_evaluate_model(X_train, X_test, y_train, y_test, models=None):
+def train_and_evaluate_model(X_train, X_test, y_train, y_test, models=None, test=True):
     """
     Trains and evaluates multiple machine learning models on a given dataset, then visualizes the data embeddings
     using PCA before training. This function trains each model on the training data, evaluates them on the test data, 
@@ -243,6 +243,7 @@ def train_and_evaluate_model(X_train, X_test, y_train, y_test, models=None):
         model.fit(X_train, y_train)
         
         # TODO: Evaluate the model on the test set using the test_model function
-        accuracy, precision, recall, f1 = test_model(X_test, y_test, model)
+        if test:
+            accuracy, precision, recall, f1 = test_model(X_test, y_test, model)
         
     return models

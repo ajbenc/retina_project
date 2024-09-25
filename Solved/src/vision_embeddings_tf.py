@@ -157,6 +157,17 @@ class FoundationalCVModel:
         
         # TODO: Create the final model with the input layer and the pooling output
         self.model = Model(inputs=input_layer, outputs=outputs)
+        
+    def get_output_shape(self):
+        """
+        Get the output shape of the model.
+
+        Returns:
+        -------
+        tuple
+            The shape of the model's output tensor.
+        """
+        return self.model.output_shape
     
     def predict(self, images):
         """

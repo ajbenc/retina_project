@@ -315,7 +315,7 @@ def test_model(y_test, y_pred, y_prob=None, encoder=None):
 
 
     
-def train_mlp(train_loader, test_loader, text_input_size, image_input_size, output_size, num_epochs=50, report=False, lr=0.001, set_weights=True, adam=False, p=0.0, seed=1, patience=40, save_results=True):
+def train_mlp(train_loader, test_loader, text_input_size, image_input_size, output_size, num_epochs=50, report=False, lr=0.001, set_weights=True, adam=False, p=0.0, seed=1, patience=40, save_results=True, train_model=True, test_mlp_model=True):
     """
     Trains a multimodal early fusion model using both text and image data.
 
@@ -398,52 +398,56 @@ def train_mlp(train_loader, test_loader, text_input_size, image_input_size, outp
     # Use the class weights if set_weights
     # Use the early stopping callback
     # Use the number of epochs specified
-    history = model.fit(train_loader, validation_data=test_loader, epochs=num_epochs, class_weight=class_weights, callbacks=[early_stopping])
+    if train_model:
+        history = model.fit(train_loader, validation_data=test_loader, epochs=num_epochs, class_weight=class_weights, callbacks=[early_stopping])
 
-    # Test the model on the test set
-    y_true, y_pred, y_prob = [], [], []
-    for batch in test_loader:
-        features, labels = batch
-        if len(features) == 1:
-            text = features['text'] if 'text' in features else features['image']
-            preds = model.predict(text)
-        else:
-            text, image = features['text'], features['image']
-            preds = model.predict([text, image])
-        y_true.extend(labels)
-        y_pred.extend(np.argmax(preds, axis=1))
-        y_prob.extend(preds)
+    if test_mlp_model:
+        # Test the model on the test set
+        y_true, y_pred, y_prob = [], [], []
+        for batch in test_loader:
+            features, labels = batch
+            if len(features) == 1:
+                text = features['text'] if 'text' in features else features['image']
+                preds = model.predict(text)
+            else:
+                text, image = features['text'], features['image']
+                preds = model.predict([text, image])
+            y_true.extend(labels)
+            y_pred.extend(np.argmax(preds, axis=1))
+            y_prob.extend(preds)
 
-    y_true, y_pred, y_prob = np.array(y_true), np.array(y_pred), np.array(y_prob)
+        y_true, y_pred, y_prob = np.array(y_true), np.array(y_pred), np.array(y_prob)
 
-    test_accuracy = accuracy_score(np.argmax(y_true, axis=1), y_pred)
-    f1 = f1_score(np.argmax(y_true, axis=1), y_pred, average='macro')
-    
-    auc_scores = roc_auc_score(y_true, y_prob, average='macro', multi_class='ovr')
-    macro_auc = auc_scores
+        test_accuracy = accuracy_score(np.argmax(y_true, axis=1), y_pred)
+        f1 = f1_score(np.argmax(y_true, axis=1), y_pred, average='macro')
+        
+        auc_scores = roc_auc_score(y_true, y_prob, average='macro', multi_class='ovr')
+        macro_auc = auc_scores
 
-    plt.plot(history.history['accuracy'], label='Train Accuracy')
-    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    plt.show()
+        plt.plot(history.history['accuracy'], label='Train Accuracy')
+        plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.legend()
+        plt.show()
 
-    if report:
-        test_model(y_true, y_pred, y_prob, encoder=train_loader.encoder)
-    
-    # Store results in a dataframe and save in the results folder
-    if text_input_size is not None and image_input_size is not None:
-        model_type = 'multimodal'
-    elif text_input_size is not None:
-        model_type = 'text'
-    elif image_input_size is not None:
-        model_type = 'image'
-    
-    if save_results:
-        results = pd.DataFrame({'Predictions': y_pred, 'True Labels': np.argmax(y_true, axis=1)})
-        # create results folder if it does not exist
-        os.makedirs('results', exist_ok=True)
-        results.to_csv(f"results/{model_type}_results.csv", index=False)
-
+        if report:
+            test_model(y_true, y_pred, y_prob, encoder=train_loader.encoder)
+        
+        # Store results in a dataframe and save in the results folder
+        if text_input_size is not None and image_input_size is not None:
+            model_type = 'multimodal'
+        elif text_input_size is not None:
+            model_type = 'text'
+        elif image_input_size is not None:
+            model_type = 'image'
+        
+        if save_results:
+            results = pd.DataFrame({'Predictions': y_pred, 'True Labels': np.argmax(y_true, axis=1)})
+            # create results folder if it does not exist
+            os.makedirs('results', exist_ok=True)
+            results.to_csv(f"results/{model_type}_results.csv", index=False)
+    else:
+        test_accuracy, f1, macro_auc = None, None, None
+        
     return model, test_accuracy, f1, macro_auc

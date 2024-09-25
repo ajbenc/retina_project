@@ -119,7 +119,7 @@ In this section, you'll generate embeddings for product descriptions using a pre
 
    Optionally, if you choose to use the OpenAI API, you can implement the class `GPT` in the file `src/nlp_models.py` and implement the missing lines in the `get_embedding` and `get_embeddings_df` methods to generate the embeddings using the OpenAI API.
 
-   **The class should work at least for `sentence-transformers/all-MiniLM-L6-v2` and `bert-base-uncased` models from Hugging Face.**
+   **The class should work at least for `sentence-transformers/all-MiniLM-L6-v2` from Hugging Face, but you can implement other models if you want such as BERT.**
 
 3. **Run and Save Embeddings**:
    Go to the notebook to the section `2.2. Text Embeddings` and run the code to generate the embeddings for the product descriptions and save them for further use.
@@ -159,7 +159,7 @@ In this section, you'll train and evaluate classic machine learning models using
 ### Instructions
 
 1. **Implement the ML models and Embedding visualization**:
-   Go to the file `src/classifiers_classic_ml.py` and implement the missing lines in the function `visualize_embeddings` to implement PCA and t-SNE visualization of the embeddings for 2D and 3D plots. Then go to the function `train_and_evaluate_model` and implement the missing lines to instantiate and train the classic machine learning models from the sklearn library.
+   Go to the file `src/classifiers_classic_ml.py` and implement the missing lines in the function `visualize_embeddings` to implement at least PCA visualization of the embeddings for 2D and 3D plots. Then go to the function `train_and_evaluate_model` and implement the missing lines to instantiate and train the classic machine learning models from the sklearn library.
 
    **You should at least implement the following models: `RandomForest`, and `LogisticRegression`.**
 
@@ -299,3 +299,13 @@ If you are using Docker, you can test the project by:
     
     ================================ 21 passed, 6 warnings in 114.64s (0:01:54) ================================
    ```
+
+# Submission
+
+To submit the project, you need to provide the files in the following folders in a zip file:
+- src/
+- tests/
+- results/
+- README.md
+
+**The files in `data/`, and in `Embeddings/` folders are not necessary to submit, since they are too large.**
