@@ -28,6 +28,95 @@ class RetinaEmbeddingsDataset:
     feature_cols: list[str]
 
 
+def _coerce_binary(series: pd.Series) -> pd.Series:
+    """Coerce a label series into {0,1} with missing as <NA>.
+
+    Handles common encodings:
+      - numeric 0/1
+      - strings like yes/no, true/false, y/n, 1/0
+    """
+
+    if series is None:
+        return pd.Series(pd.array([], dtype="Int64"))
+
+    s = series.copy()
+
+    # Fast path: already numeric
+    if pd.api.types.is_numeric_dtype(s):
+        out = pd.to_numeric(s, errors="coerce")
+        out = out.where(out.isin([0, 1]))
+        return out.astype("Int64")
+
+    # Strings / objects
+    s_norm = s.astype(str).str.lower().str.strip()
+    mapping = {
+        "1": 1,
+        "0": 0,
+        "yes": 1,
+        "no": 0,
+        "y": 1,
+        "n": 0,
+        "true": 1,
+        "false": 0,
+        "t": 1,
+        "f": 0,
+    }
+    out = s_norm.map(mapping)
+    return pd.to_numeric(out, errors="coerce").astype("Int64")
+
+
+def suggest_binary_target_columns(
+    df: pd.DataFrame,
+    *,
+    exclude: Iterable[str] = (),
+    min_positives: int = 25,
+    min_negatives: int = 25,
+    max_pos_rate: float = 0.95,
+) -> list[str]:
+    """Suggest viable binary label columns in a merged dataframe.
+
+    This is meant for sweeping *additional* tasks beyond the core DR tasks.
+    """
+
+    exclude_set = set(exclude)
+    candidates: list[str] = []
+
+    for col in df.columns:
+        if col in exclude_set:
+            continue
+        if col.startswith("emb_"):
+            continue
+
+        s = df[col]
+        if pd.api.types.is_bool_dtype(s):
+            s_bin = s.astype("Int64")
+        else:
+            s_bin = _coerce_binary(s)
+
+        if s_bin.isna().all():
+            continue
+
+        vc = s_bin.value_counts(dropna=True)
+        if not set(vc.index.tolist()).issubset({0, 1}):
+            continue
+
+        pos = int(vc.get(1, 0))
+        neg = int(vc.get(0, 0))
+        total = pos + neg
+        if total == 0:
+            continue
+        pos_rate = pos / total
+
+        if pos < min_positives or neg < min_negatives:
+            continue
+        if pos_rate > max_pos_rate or pos_rate < (1.0 - max_pos_rate):
+            continue
+
+        candidates.append(col)
+
+    return sorted(candidates)
+
+
 def _as_path(path: str | Path) -> Path:
     return path if isinstance(path, Path) else Path(path)
 
@@ -136,6 +225,23 @@ def _derive_tasks_mbrset(labels: pd.DataFrame) -> pd.DataFrame:
 
     labels = _derive_common_columns(labels, patient_col="patient", age_col="age", sex_col="sex")
 
+    # Normalize additional privacy/metadata targets (binary when possible)
+    for col in (
+        "insulin",
+        "oraltreatment_dm",
+        "systemic_hypertension",
+        "alcohol_consumption",
+        "smoking",
+        "obesity",
+        "vascular_disease",
+        "acute_myocardial_infarction",
+        "nephropathy",
+        "neuropathy",
+        "diabetic_foot",
+    ):
+        if col in labels.columns:
+            labels[col] = _coerce_binary(labels[col])
+
     return labels
 
 
@@ -194,6 +300,27 @@ def _derive_tasks_brset(labels: pd.DataFrame) -> pd.DataFrame:
             pass
         elif unique.issubset({1, 2}):
             labels["sex"] = labels["sex"].map({1: 1, 2: 0}).astype("Int64")
+
+    # Normalize additional binary labels commonly used as targets
+    for col in (
+        "diabetes",
+        "insuline",
+        "macular_edema",
+        "diabetic_retinopathy",
+        "scar",
+        "nevus",
+        "amd",
+        "vascular_occlusion",
+        "hypertensive_retinopathy",
+        "drusens",
+        "hemorrhage",
+        "retinal_detachment",
+        "myopic_fundus",
+        "increased_cup_disc",
+        "other",
+    ):
+        if col in labels.columns:
+            labels[col] = _coerce_binary(labels[col])
 
     return labels
 

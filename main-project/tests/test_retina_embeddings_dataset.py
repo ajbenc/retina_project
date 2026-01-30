@@ -21,6 +21,7 @@ def test_load_mbrset_merges_and_derives_tasks(tmp_path):
             "patient": [1, 1, 2],
             "age": [50, 50, 60],
             "sex": [1, 1, 0],
+            "smoking": ["no", "yes", "no"],
             "file": ["1.1.jpg", "1.3.jpg", "2.1.jpg"],
             "final_icdr": [0, 2, 4],
             "final_edema": ["no", "yes", "no"],
@@ -53,6 +54,9 @@ def test_load_mbrset_merges_and_derives_tasks(tmp_path):
     assert int(row2["task_referable"]) == 1
     assert int(row2["task_3class"]) == 2
 
+    # Extra binary targets should be normalized to 0/1
+    assert int(ds.df.loc[ds.df["image_name"] == "1.3.jpg"].iloc[0]["smoking"]) == 1
+
 
 def test_load_brset_strips_extension_for_join(tmp_path):
     emb_path = tmp_path / "emb.csv"
@@ -72,6 +76,7 @@ def test_load_brset_strips_extension_for_join(tmp_path):
             "patient_sex": [1, 1],
             "DR_ICDR": [0, 3],
             "macular_edema": [0, 1],
+            "diabetes": [1, 0],
         }
     ).to_csv(labels_path, index=False)
 
@@ -83,3 +88,6 @@ def test_load_brset_strips_extension_for_join(tmp_path):
     assert int(row["task_any_dr"]) == 1
     assert int(row["task_referable"]) == 1
     assert int(row["task_3class"]) == 1
+
+    # Extra binary targets should be normalized to 0/1
+    assert int(row["diabetes"]) == 0

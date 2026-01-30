@@ -38,6 +38,11 @@ build/
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
+# Generated evaluation artifacts
+results/
+main-project/results/
+*.parquet
+
 # VSCode
 *.vscode/
 *.code-workspace

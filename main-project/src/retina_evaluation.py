@@ -141,6 +141,7 @@ def _make_model(model_name: str, *, random_state: int = 0):
             subsample=0.9,
             colsample_bytree=0.9,
             reg_lambda=0.0,
+            verbose=-1,
             random_state=random_state,
             n_jobs=-1,
         )
@@ -178,7 +179,9 @@ def evaluate_binary_models_groupkfold(
     y = work[label_col].astype(int).to_numpy()
     groups = work[group_col].astype(str).to_numpy()
 
-    X = work.loc[:, list(feature_cols)].to_numpy(dtype=np.float32, copy=False)
+    feature_cols = list(feature_cols)
+    X_df = work.loc[:, feature_cols].astype(np.float32)
+    X = X_df.to_numpy(copy=False)
 
     from sklearn.model_selection import GroupKFold
 
@@ -193,13 +196,13 @@ def evaluate_binary_models_groupkfold(
 
         for fold_idx, (train_idx, test_idx) in enumerate(gkf.split(X, y, groups=groups)):
             model = _make_model(model_name, random_state=seed + fold_idx)
-            model.fit(X[train_idx], y[train_idx])
+            model.fit(X_df.iloc[train_idx], y[train_idx])
 
             if hasattr(model, "predict_proba"):
-                proba = model.predict_proba(X[test_idx])[:, 1]
+                proba = model.predict_proba(X_df.iloc[test_idx])[:, 1]
             else:
                 # Fallback for rare estimators
-                scores = model.decision_function(X[test_idx])
+                scores = model.decision_function(X_df.iloc[test_idx])
                 proba = 1.0 / (1.0 + np.exp(-scores))
 
             proba = _as_float_array(proba)
