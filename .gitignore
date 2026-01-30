@@ -83,5 +83,7 @@ cython_debug/
 
 *.pytest_cache/
 *.venv/
-*legacy_bestbuy/
+# Legacy BestBuy sprint project (archived)
+legacy_bestbuy/
+main-project/legacy_bestbuy/
 
