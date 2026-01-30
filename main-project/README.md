@@ -57,7 +57,3 @@ From `Sprint-Project-4-5/Solved`:
 - `src/retina_embeddings_dataset.py`: loads embeddings + labels, derives targets, returns feature columns.
 - `src/retina_evaluation.py`: patient-level GroupKFold evaluation + metrics + subgroup reports.
 - `evaluate_embeddings.ipynb`: runnable end-to-end evaluation.
-
-## Legacy materials
-
-Files from the original BestBuy sprint template were archived to `legacy_bestbuy/` to keep the repository focused.
