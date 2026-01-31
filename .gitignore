@@ -39,9 +39,9 @@ build/
 .ipynb_checkpoints
 
 # Generated evaluation artifacts
-results/
-main-project/results/
-*.parquet
+#results/
+#main-project/results/
+#*.parquet
 
 # VSCode
 *.vscode/
