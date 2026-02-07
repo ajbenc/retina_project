@@ -201,6 +201,140 @@ def _age_bins(series: pd.Series) -> pd.Series:
     return pd.cut(s, bins=[0, 40, 60, 120], labels=["<40", "40-60", ">60"], right=False)
 
 
+def _compute_class_weight_dict(y: np.ndarray, *, power: float = 1.0) -> dict[int, float]:
+    """Balanced class weights as a dict usable by sklearn/lightgbm.
+
+    Args:
+        power: >1 increases disparity (minority classes get heavier weights);
+            <1 dampens disparity.
+    """
+
+    from sklearn.utils.class_weight import compute_class_weight
+
+    y_i = np.asarray(y, dtype=int)
+    classes = np.unique(y_i)
+    weights = compute_class_weight(class_weight="balanced", classes=classes, y=y_i)
+    out = {int(c): float(w) for c, w in zip(classes, weights, strict=False)}
+    if power != 1.0:
+        out = {k: float(v**power) for k, v in out.items()}
+    return out
+
+
+def _compute_sample_weight_balanced(
+    y: np.ndarray,
+    *,
+    task_type: Literal["binary", "multiclass"],
+    pos_weight_multiplier: float = 1.0,
+    class_weight_power: float = 1.0,
+) -> np.ndarray:
+    from sklearn.utils.class_weight import compute_sample_weight
+
+    y_i = np.asarray(y, dtype=int)
+    if task_type == "binary":
+        sw = np.asarray(compute_sample_weight(class_weight="balanced", y=y_i), dtype=np.float32)
+        if pos_weight_multiplier != 1.0:
+            sw = sw.copy()
+            sw[y_i == 1] *= float(pos_weight_multiplier)
+        return sw
+
+    cw = _compute_class_weight_dict(y_i, power=class_weight_power)
+    return np.asarray(compute_sample_weight(class_weight=cw, y=y_i), dtype=np.float32)
+
+
+def _maybe_make_early_stopping_split(
+    X: pd.DataFrame,
+    y: np.ndarray,
+    *,
+    eval_frac: float = 0.1,
+    seed: int = 0,
+    min_eval_size: int = 200,
+) -> tuple[pd.DataFrame, np.ndarray, pd.DataFrame, np.ndarray] | None:
+    """Create a small eval split for early stopping without touching the holdout set."""
+
+    if not 0 < eval_frac < 0.5:
+        return None
+
+    y_i = np.asarray(y, dtype=int)
+    if len(y_i) < (min_eval_size * 2):
+        return None
+    if len(np.unique(y_i)) < 2:
+        return None
+
+    from sklearn.model_selection import StratifiedShuffleSplit
+
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=eval_frac, random_state=seed)
+    tr_idx, ev_idx = next(sss.split(X, y_i))
+
+    if len(ev_idx) < min_eval_size:
+        return None
+
+    X_tr = X.iloc[tr_idx]
+    y_tr = y_i[tr_idx]
+    X_ev = X.iloc[ev_idx]
+    y_ev = y_i[ev_idx]
+    return X_tr, y_tr, X_ev, y_ev
+
+
+def tune_binary_threshold(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    *,
+    objective: Literal["f1", "balanced_accuracy", "recall"] = "f1",
+    grid_size: int = 101,
+) -> float:
+    """Tune a probability threshold on a fixed validation set.
+
+    Note: this uses the same set for tuning and reporting; treat as diagnostic.
+    """
+
+    from sklearn.metrics import balanced_accuracy_score, f1_score, recall_score
+
+    yt = np.asarray(y_true, dtype=int)
+    yp = _as_float_array(np.asarray(y_proba))
+    if len(yt) == 0:
+        return 0.5
+
+    thresholds = np.linspace(0.0, 1.0, grid_size)
+    best_t = 0.5
+    best_s = -np.inf
+
+    for t in thresholds:
+        pred = (yp >= t).astype(int)
+        if objective == "balanced_accuracy":
+            s = float(balanced_accuracy_score(yt, pred))
+        elif objective == "recall":
+            s = float(recall_score(yt, pred, zero_division=0))
+        else:
+            s = float(f1_score(yt, pred, zero_division=0))
+
+        if s > best_s:
+            best_s = s
+            best_t = float(t)
+
+    return best_t
+
+
+def _fit_with_optional_sample_weight(model, X, y, sample_weight: np.ndarray | None):
+    if sample_weight is None:
+        model.fit(X, y)
+        return model
+
+    # Pipelines don't accept sample_weight directly unless routed to a step.
+    if hasattr(model, "named_steps") and "clf" in getattr(model, "named_steps", {}):
+        try:
+            model.fit(X, y, clf__sample_weight=sample_weight)
+            return model
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        model.fit(X, y, sample_weight=sample_weight)
+        return model
+    except (TypeError, ValueError):
+        model.fit(X, y)
+        return model
+
+
 def _make_model(model_name: str, *, random_state: int = 0):
     name = model_name.lower()
 
@@ -240,10 +374,13 @@ def _make_model(model_name: str, *, random_state: int = 0):
                     MLPClassifier(
                         hidden_layer_sizes=(512, 128),
                         activation="relu",
-                        alpha=1e-4,
-                        max_iter=200,
+                        batch_size=32,
+                        # Stronger regularization helps mitigate overfitting on embeddings.
+                        alpha=1e-3,
+                        max_iter=300,
                         early_stopping=True,
                         n_iter_no_change=10,
+                        validation_fraction=0.1,
                         random_state=random_state,
                     ),
                 ),
@@ -272,12 +409,15 @@ def _make_model(model_name: str, *, random_state: int = 0):
         from lightgbm import LGBMClassifier
 
         return LGBMClassifier(
-            n_estimators=2000,
+            n_estimators=4000,
             learning_rate=0.03,
-            num_leaves=63,
-            subsample=0.9,
-            colsample_bytree=0.9,
-            reg_lambda=0.0,
+            # Slightly more conservative defaults to reduce overfitting.
+            num_leaves=31,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_samples=50,
+            reg_alpha=0.1,
+            reg_lambda=1.0,
             verbose=-1,
             random_state=random_state,
             n_jobs=-1,
@@ -293,6 +433,11 @@ def train_holdout_model(
     label_col: str,
     model_name: str,
     seed: int = 0,
+    task_type: Literal["binary", "multiclass", "auto"] = "auto",
+    rebalance: bool = True,
+    pos_weight_multiplier: float = 1.0,
+    class_weight_power: float = 1.0,
+    lgbm_early_stopping: bool = True,
 ):
     if label_col not in train_df.columns:
         raise ValueError(f"Missing label_col: {label_col}")
@@ -305,9 +450,66 @@ def train_holdout_model(
     X_train = train_work.loc[:, feature_cols].astype(np.float32)
     y_train = train_work[label_col].astype(int).to_numpy()
 
+    if task_type == "auto":
+        task_type = "binary" if len(np.unique(y_train)) <= 2 else "multiclass"
+
     model = _make_model(model_name, random_state=seed)
-    model.fit(X_train, y_train)
+
+    sample_weight = None
+    if rebalance:
+        try:
+            sample_weight = _compute_sample_weight_balanced(
+                y_train,
+                task_type=task_type if task_type != "auto" else "binary",
+                pos_weight_multiplier=pos_weight_multiplier,
+                class_weight_power=class_weight_power,
+            )
+        except Exception:
+            sample_weight = None
+
+    # LightGBM: prefer native imbalance knobs.
+    if model_name.lower() in {"lgbm", "lightgbm"}:
+        # Configure weights
+        if rebalance:
+            if task_type == "binary":
+                spw = _binary_scale_pos_weight(y_train, pos_weight_multiplier=pos_weight_multiplier)
+                if spw is not None:
+                    try:
+                        model.set_params(scale_pos_weight=spw)
+                    except Exception:
+                        pass
+            else:
+                try:
+                    model.set_params(class_weight=_compute_class_weight_dict(y_train, power=class_weight_power))
+                except Exception:
+                    pass
+
+        # Early stopping using an internal eval split.
+        if lgbm_early_stopping:
+            split = _maybe_make_early_stopping_split(X_train, y_train, eval_frac=0.1, seed=seed)
+            if split is not None:
+                X_tr, y_tr, X_ev, y_ev = split
+                from lightgbm import early_stopping, log_evaluation
+
+                model.fit(
+                    X_tr,
+                    y_tr,
+                    eval_set=[(X_ev, y_ev)],
+                    callbacks=[early_stopping(stopping_rounds=100, verbose=False), log_evaluation(period=0)],
+                )
+                return model
+
+    _fit_with_optional_sample_weight(model, X_train, y_train, sample_weight)
     return model
+
+
+def _binary_scale_pos_weight(y: np.ndarray, *, pos_weight_multiplier: float = 1.0) -> float | None:
+    y_i = np.asarray(y, dtype=int)
+    pos = float(np.sum(y_i == 1))
+    neg = float(np.sum(y_i == 0))
+    if pos <= 0:
+        return None
+    return float((neg / pos) * float(pos_weight_multiplier))
 
 
 def evaluate_holdout_classification(
@@ -318,6 +520,8 @@ def evaluate_holdout_classification(
     label_col: str,
     task_type: Literal["binary", "multiclass"],
     proba_threshold: float = 0.5,
+    tune_threshold: bool = False,
+    tune_objective: Literal["f1", "balanced_accuracy", "recall"] = "f1",
 ) -> HoldoutReport:
     from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
 
@@ -344,8 +548,11 @@ def evaluate_holdout_classification(
 
     if task_type == "binary":
         y_proba = _as_float_array(proba_val[:, 1])
+        if tune_threshold:
+            proba_threshold = tune_binary_threshold(y_true, y_proba, objective=tune_objective)
         y_pred = (y_proba >= proba_threshold).astype(int)
         metrics = _binary_metrics(y_true, y_pred, y_proba)
+        metrics["proba_threshold"] = float(proba_threshold)
         report = classification_report(y_true, y_pred, digits=3)
         cm = confusion_matrix(y_true, y_pred)
         try:
@@ -478,7 +685,14 @@ def evaluate_models_holdout(
     label_col: str,
     model_names: list[str] | None = None,
     task_type: Literal["binary", "multiclass", "auto"] = "auto",
+    eval_level: Literal["sample", "patient"] = "sample",
+    patient_id_col: str = "patient_id",
     proba_threshold: float = 0.5,
+    tune_threshold: bool = False,
+    tune_objective: Literal["f1", "balanced_accuracy", "recall"] = "f1",
+    rebalance: bool = True,
+    pos_weight_multiplier: float = 1.0,
+    class_weight_power: float = 1.0,
     seed: int = 0,
 ) -> EvalResult:
     """Train models on a patient-level train/val split and report metrics.
@@ -498,6 +712,9 @@ def evaluate_models_holdout(
     train_work = train_df.dropna(subset=[label_col]).copy()
     val_work = val_df.dropna(subset=[label_col]).copy()
 
+    if eval_level == "patient" and patient_id_col not in val_work.columns:
+        raise ValueError(f"Missing patient_id_col for patient-level evaluation: {patient_id_col}")
+
     y_train = train_work[label_col].astype(int).to_numpy()
     y_val = val_work[label_col].astype(int).to_numpy()
 
@@ -515,7 +732,54 @@ def evaluate_models_holdout(
 
     for model_idx, model_name in enumerate(model_names):
         model = _make_model(model_name, random_state=seed + model_idx)
-        model.fit(X_train, y_train)
+
+        sample_weight = None
+        if rebalance:
+            try:
+                sample_weight = _compute_sample_weight_balanced(
+                    y_train,
+                    task_type=task_type if task_type != "auto" else "binary",
+                    pos_weight_multiplier=pos_weight_multiplier,
+                    class_weight_power=class_weight_power,
+                )
+            except Exception:
+                sample_weight = None
+
+        if model_name.lower() in {"lgbm", "lightgbm"}:
+            # Configure imbalance handling
+            if rebalance:
+                if task_type == "binary":
+                    spw = _binary_scale_pos_weight(y_train, pos_weight_multiplier=pos_weight_multiplier)
+                    if spw is not None:
+                        try:
+                            model.set_params(scale_pos_weight=spw)
+                        except Exception:
+                            pass
+                else:
+                    try:
+                        model.set_params(class_weight=_compute_class_weight_dict(y_train, power=class_weight_power))
+                    except Exception:
+                        pass
+
+            # Early stopping on an internal split (not the holdout set)
+            split = _maybe_make_early_stopping_split(X_train, y_train, eval_frac=0.1, seed=seed + model_idx)
+            if split is not None:
+                X_tr, y_tr, X_ev, y_ev = split
+                from lightgbm import early_stopping, log_evaluation
+
+                model.fit(
+                    X_tr,
+                    y_tr,
+                    eval_set=[(X_ev, y_ev)],
+                    callbacks=[early_stopping(stopping_rounds=100, verbose=False), log_evaluation(period=0)],
+                )
+            else:
+                model.fit(X_train, y_train)
+        else:
+            if sample_weight is None:
+                model.fit(X_train, y_train)
+            else:
+                _fit_with_optional_sample_weight(model, X_train, y_train, sample_weight)
 
         if hasattr(model, "predict_proba"):
             proba_val = model.predict_proba(X_val)
@@ -529,14 +793,63 @@ def evaluate_models_holdout(
 
         if task_type == "binary":
             proba = _as_float_array(proba_val[:, 1])
+            if tune_threshold:
+                proba_threshold = tune_binary_threshold(y_val, proba, objective=tune_objective)
             pred = (proba >= proba_threshold).astype(int)
-            metrics = _binary_metrics(y_val, pred, proba)
+
+            if eval_level == "patient":
+                tmp = pd.DataFrame(
+                    {
+                        "patient_id": val_work[patient_id_col].astype(str).to_numpy(),
+                        "y_true": y_val,
+                        "y_proba": proba,
+                    }
+                )
+                agg = (
+                    tmp.groupby("patient_id", sort=False)
+                    .agg(y_true=("y_true", _majority_label), y_proba=("y_proba", "mean"))
+                    .reset_index(drop=True)
+                )
+                y_true_eval = agg["y_true"].astype(int).to_numpy()
+                y_proba_eval = agg["y_proba"].astype(np.float32).to_numpy()
+                y_pred_eval = (y_proba_eval >= proba_threshold).astype(int)
+                metrics = _binary_metrics(y_true_eval, y_pred_eval, y_proba_eval)
+            else:
+                metrics = _binary_metrics(y_val, pred, proba)
+
+            metrics["proba_threshold"] = float(proba_threshold)
+            metrics["eval_level"] = 1.0 if eval_level == "patient" else 0.0
             proba_for_df = proba
+            proba_vec_for_df: list[np.ndarray] | None = None
         else:
             proba_matrix = _as_float_array(proba_val)
             pred = proba_matrix.argmax(axis=1)
-            metrics = _multiclass_metrics(y_val, pred, proba_matrix)
+
+            if eval_level == "patient":
+                tmp = pd.DataFrame(
+                    {
+                        "patient_id": val_work[patient_id_col].astype(str).to_numpy(),
+                        "y_true": y_val,
+                        "row_idx": np.arange(len(y_val), dtype=int),
+                    }
+                )
+                # Aggregate probabilities by mean per patient.
+                patient_rows: list[dict[str, Any]] = []
+                for pid, sub in tmp.groupby("patient_id", sort=False):
+                    idx = sub["row_idx"].to_numpy(dtype=int)
+                    mean_proba = np.mean(proba_matrix[idx], axis=0)
+                    patient_rows.append({"patient_id": pid, "y_true": _majority_label(sub["y_true"]), "y_proba": mean_proba})
+                agg_df = pd.DataFrame(patient_rows)
+                y_true_eval = agg_df["y_true"].astype(int).to_numpy()
+                y_proba_eval = np.vstack(agg_df["y_proba"].to_list()).astype(np.float32, copy=False)
+                y_pred_eval = y_proba_eval.argmax(axis=1)
+                metrics = _multiclass_metrics(y_true_eval, y_pred_eval, y_proba_eval)
+            else:
+                metrics = _multiclass_metrics(y_val, pred, proba_matrix)
+
+            metrics["eval_level"] = 1.0 if eval_level == "patient" else 0.0
             proba_for_df = proba_matrix.max(axis=1)
+            proba_vec_for_df = [row for row in np.asarray(proba_matrix)]
 
         row = {"model": model_name}
         row.update(metrics)
@@ -550,7 +863,8 @@ def evaluate_models_holdout(
                     "y_true": y_val,
                     "y_pred": pred,
                     "y_proba": proba_for_df,
-                    "patient_id": val_work["patient_id"].to_numpy() if "patient_id" in val_work.columns else np.nan,
+                    "y_proba_vec": proba_vec_for_df if task_type == "multiclass" else np.nan,
+                    "patient_id": val_work[patient_id_col].to_numpy() if patient_id_col in val_work.columns else np.nan,
                     "sex": val_work["sex"].to_numpy() if "sex" in val_work.columns else np.nan,
                     "age": val_work["age"].to_numpy() if "age" in val_work.columns else np.nan,
                 }
