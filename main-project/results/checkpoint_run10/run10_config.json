@@ -1,0 +1,20 @@
+{
+  "run": 10,
+  "hidden_layer_sizes": [
+    256,
+    128
+  ],
+  "alpha": 0.08,
+  "learning_rate_init": 0.0005,
+  "lr_min": 1e-05,
+  "lr_schedule": "cosine",
+  "batch_size": 128,
+  "max_epochs": 300,
+  "patience": 50,
+  "warmup_epochs": 20,
+  "pca": 128,
+  "mae_alpha": 0.05,
+  "sweep_weight_cap": 15,
+  "dynamics": "8 UNDERFITTING, 6 GOOD FIT",
+  "notes": "Alpha too strong (0.08) caused underfitting. Train losses stuck >0.25."
+}

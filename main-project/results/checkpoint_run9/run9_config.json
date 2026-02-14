@@ -1,0 +1,18 @@
+{
+  "run": "Run 9 (checkpoint)",
+  "architecture": "(256, 128)",
+  "PCA": 128,
+  "alpha": 0.05,
+  "mae_alpha": 0.03,
+  "lr": 0.001,
+  "lr_min": 1e-05,
+  "lr_schedule": "cosine",
+  "batch_size": 128,
+  "max_epochs": 300,
+  "patience": 30,
+  "warmup": 10,
+  "sweep_max_weight": 15,
+  "dynamics": "13/14 GOOD FIT",
+  "task_any_dr_avg_f1": 0.501,
+  "task_ref_macular_avg_f1": 0.518
+}

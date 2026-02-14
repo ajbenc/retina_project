@@ -1,30 +1,30 @@
 {
   "Embeddings_convnextv2_base_mbrset": {
-    "task_any_dr": 0.36769999999999997,
-    "task_referable": 0.36769999999999997
+    "task_any_dr": 0.2942,
+    "task_referable": 0.2795
   },
   "Embeddings_mbrset_dinov3_convnext_base": {
-    "task_any_dr": 0.4412,
-    "task_referable": 0.6910999999999999
+    "task_any_dr": 0.7107,
+    "task_referable": 0.6567999999999999
   },
   "Embeddings_mbrset_dinov3_vitb16": {
-    "task_any_dr": 0.6715,
-    "task_referable": 0.4314
-  },
-  "Embeddings_mbrset_RETFound_dinov2_shanghai": {
-    "task_any_dr": 0.5245,
+    "task_any_dr": 0.5686,
     "task_referable": 0.4755
   },
+  "Embeddings_mbrset_RETFound_dinov2_shanghai": {
+    "task_any_dr": 0.3334,
+    "task_referable": 0.45589999999999997
+  },
   "Embeddings_mbrset_RETFound_mae_natureCFP": {
-    "task_any_dr": 0.6567999999999999,
-    "task_referable": 0.3285
+    "task_any_dr": 0.3187,
+    "task_referable": 0.2501
   },
   "Embeddings_mbrset_RETFound_mae_shanghai": {
-    "task_any_dr": 0.451,
-    "task_referable": 0.6862
+    "task_any_dr": 0.6666,
+    "task_referable": 0.7058
   },
   "Embeddings_vit_base_mbrset": {
-    "task_any_dr": 0.696,
-    "task_referable": 0.3432
+    "task_any_dr": 0.7596999999999999,
+    "task_referable": 0.3922
   }
 }
