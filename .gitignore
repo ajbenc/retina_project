@@ -37,11 +37,12 @@ build/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
+.pytest_cache/
 
 # Generated evaluation artifacts
-#results/
-#main-project/results/
-#*.parquet
+results/
+*.parquet
+*.npz
 
 # VSCode
 *.vscode/
@@ -83,7 +84,5 @@ cython_debug/
 
 *.pytest_cache/
 *.venv/
-# Legacy BestBuy sprint project (archived)
-legacy_bestbuy/
-main-project/legacy_bestbuy/
+
 
